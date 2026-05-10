@@ -1,0 +1,53 @@
+Project Documentation: RFQ to BOM Processing System
+
+1. OVERALL PROJECT AIM
+-----------------------
+The main goal of this project is to automate the processing of customer Requests for Quotation (RFQs) in a manufacturing setting. Instead of a human manually reading an email saying "We need 50 pressure gauges with a 25mm dial", the AI reads this text, matches it to a specific finished product in the company's catalog, figures out what raw materials (Bill of Materials) are needed to build 50 units, and checks the warehouse inventory to see if it's feasible to fulfill the order immediately or if there are shortages.
+
+2. WHAT IS IN THE DATASETS?
+----------------------------
+The project relies on two Excel files:
+* historical_bom_dataset.xlsx: This is the product catalog and recipe book. It lists every finished product (e.g., Pressure Gauges, Control Valves), their physical specifications (dial size, max pressure range, connection type, mounting style), and the exact raw components (like Lenses, Actuators, Dials) required to build one unit.
+* inventory_dataset.xlsx: This represents the physical warehouse. It lists all raw components (e.g., Actuators, Gaskets) and shows exactly how many of each are currently sitting in stock ('available_qty').
+
+3. DATASET CLEANING
+--------------------
+Before the AI can use the data, the 'rfq_engine.py' script cleans it:
+* It reads the Excel files into Pandas DataFrames.
+* It fills in missing values (NaN). For example, if a product doesn't have a dial size, it replaces the empty cell with a 0.0 so the math doesn't break.
+* It ensures numeric columns (like 'dial_size_mm' and 'range_max') are strictly treated as floats (decimals) rather than plain text.
+* It groups the BOM dataset by 'product_id' so it can synthesize a single, clean text string describing the finished product (e.g., "Pressure Gauge, 25.0mm dial, max range 100.0 psi").
+
+4. HOW NLP AND AI ARE USED
+---------------------------
+Natural Language Processing (NLP) and AI are used in a "Hybrid Search" approach to figure out what the customer wants based on their messy, unstructured text.
+* Semantic Embeddings (AI): We use a machine learning model from HuggingFace called 'SentenceTransformer' (specifically 'all-MiniLM-L6-v2'). This model converts the synthesized product descriptions into mathematical vectors (embeddings) representing their "meaning". When an RFQ comes in, it converts the RFQ text into a vector too, and uses 'Cosine Similarity' to find the products whose meaning is closest to the RFQ.
+* Regular Expressions (NLP Rule-based): Because lightweight AI models sometimes confuse similar numbers (like 100 psi vs 150 psi), we added a Regex layer. This layer scans the RFQ text to explicitly pull out numbers attached to units (like "25mm"). 
+* The Hybrid Match: The AI finds the top 5 closest semantic matches, and then the Regex layer boosts the score of any of those 5 products that perfectly match the numbers explicitly requested by the customer.
+
+5. EVALUATION METRICS
+----------------------
+We evaluated the AI's matching performance using a script ('evaluate.py'):
+* The script generated 30 random, noisy, simulated customer RFQs.
+* Metric 1 - Correct Matches: How many times did the AI correctly guess the exact Product ID that the simulated text was based on?
+* Metric 2 - Accuracy Percentage: (Correct Matches / Total Cases) * 100.
+* Results: The pure semantic AI achieved ~66.67% accuracy. After adding the Regex Hybrid approach, the accuracy jumped to 83.33%.
+
+6. WHAT DOES EACH PYTHON FILE DO?
+----------------------------------
+* rfq_engine.py (The Brain): 
+  - Loads and cleans the datasets.
+  - Generates the AI embeddings for the product catalog.
+  - Contains the 'match_rfq' logic (Semantic + Regex).
+  - Contains the 'check_inventory' logic that multiplies the BOM by the requested quantity and compares it against the warehouse stock.
+
+* evaluate.py (The Tester):
+  - A utility script used to test the accuracy of the 'rfq_engine.py'. It generates fake test cases and runs them through the engine in bulk, printing a table of the results and the final accuracy score.
+
+* app.py (The Web Server):
+  - A Flask backend application. It imports the 'rfq_engine.py' and keeps the AI model loaded in memory.
+  - It creates a web server on your local machine.
+  - It handles the communication between the web browser UI and the Python AI engine via a POST endpoint ('/process_rfq').
+
+* templates/index.html (The User Interface):
+  - The frontend webpage. It contains the HTML layout, the inline CSS for the dark-mode aesthetic styling, and the JavaScript that sends the user's text to 'app.py' and displays the Feasibility Report and Tables dynamically.

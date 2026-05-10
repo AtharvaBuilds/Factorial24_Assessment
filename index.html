@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RFQ to BOM Processor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --primary-accent: #3b82f6;
+            --primary-hover: #2563eb;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+            --border-color: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        textarea, input[type="number"] {
+            width: 100%;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        button {
+            background-color: var(--primary-accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.875rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background-color: var(--text-secondary);
+            cursor: not-allowed;
+        }
+
+        #results {
+            display: none;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .status-feasible {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .status-unfeasible {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .shortage-row {
+            background-color: rgba(239, 68, 68, 0.05);
+        }
+
+        .loader {
+            display: none;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--primary-accent);
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .metric {
+            background-color: var(--bg-color);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        .metric-title {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>RFQ Processor</h1>
+            <p class="subtitle">AI-powered parsing and Bill of Materials generation</p>
+        </header>
+
+        <div class="card">
+            <form id="rfqForm">
+                <div class="form-group">
+                    <label for="rfqText">Customer Request for Quotation (RFQ)</label>
+                    <textarea id="rfqText" rows="4" placeholder="e.g. We need 500 pressure gauges, 25mm dial size, up to 100 psi, back mounted..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="reqQty">Override Quantity (Optional, leaves blank to auto-detect)</label>
+                    <input type="number" id="reqQty" placeholder="500">
+                </div>
+                <button type="submit" id="submitBtn">
+                    <span id="btnText">Analyze Request</span>
+                    <div class="loader" id="btnLoader"></div>
+                </button>
+            </form>
+        </div>
+
+        <div class="card" id="results">
+            <div class="result-header">
+                <div>
+                    <h2>Feasibility Report</h2>
+                    <p style="color: var(--text-secondary); margin-top: 0.25rem;" id="resProductDesc"></p>
+                </div>
+                <div id="resStatus" class="status-badge"></div>
+            </div>
+
+            <div class="grid">
+                <div>
+                    <h3>Matched Product</h3>
+                    <div class="metric">
+                        <div class="metric-title">Product ID</div>
+                        <div class="metric-value" id="resProductId"></div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-title">Confidence Score</div>
+                        <div class="metric-value" id="resConfidence"></div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-title">Requested Quantity</div>
+                        <div class="metric-value" id="resQuantity"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3>Bill of Materials (BOM)</h3>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Component</th>
+                                    <th>Qty / Unit</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bomTableBody">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem;" id="shortagesSection">
+                <h3 style="color: var(--error-color); margin-bottom: 1rem;">Inventory Shortages Detected</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Required</th>
+                                <th>Available</th>
+                                <th>Shortage</th>
+                            </tr>
+                        </thead>
+                        <tbody id="shortagesTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('rfqForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const text = document.getElementById('rfqText').value;
+            const qty = document.getElementById('reqQty').value;
+            
+            if(!text.trim()) {
+                alert("Please enter RFQ text");
+                return;
+            }
+
+            const btn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            const loader = document.getElementById('btnLoader');
+            
+            btn.disabled = true;
+            btnText.style.display = 'none';
+            loader.style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+
+            try {
+                const response = await fetch('/process_rfq', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rfq_text: text, requested_qty: qty || null })
+                });
+
+                const data = await response.json();
+                
+                if(data.error) {
+                    alert("Error: " + data.error);
+                } else {
+                    displayResults(data);
+                }
+            } catch (err) {
+                alert("Request failed: " + err);
+            } finally {
+                btn.disabled = false;
+                btnText.style.display = 'block';
+                loader.style.display = 'none';
+            }
+        });
+
+        function displayResults(data) {
+            document.getElementById('results').style.display = 'block';
+            
+            document.getElementById('resProductId').innerText = data.matched_product_id;
+            document.getElementById('resProductDesc').innerText = data.matched_description;
+            document.getElementById('resConfidence').innerText = (data.match_confidence * 100).toFixed(1) + '%';
+            document.getElementById('resQuantity').innerText = data.requested_qty;
+            
+            const statusBadge = document.getElementById('resStatus');
+            statusBadge.innerText = data.feasibility_status;
+            if (data.shortages && data.shortages.length > 0) {
+                statusBadge.className = 'status-badge status-unfeasible';
+                document.getElementById('shortagesSection').style.display = 'block';
+            } else {
+                statusBadge.className = 'status-badge status-feasible';
+                document.getElementById('shortagesSection').style.display = 'none';
+            }
+
+            // Populate BOM Table
+            const bomTbody = document.getElementById('bomTableBody');
+            bomTbody.innerHTML = '';
+            data.bom.forEach(item => {
+                bomTbody.innerHTML += `
+                    <tr>
+                        <td>${item.component}</td>
+                        <td>${item.qty_per_unit}</td>
+                    </tr>
+                `;
+            });
+
+            // Populate Shortages Table
+            if(data.shortages.length > 0) {
+                const shortTbody = document.getElementById('shortagesTableBody');
+                shortTbody.innerHTML = '';
+                data.shortages.forEach(item => {
+                    shortTbody.innerHTML += `
+                        <tr class="shortage-row">
+                            <td>${item.component}</td>
+                            <td>${item.required}</td>
+                            <td>${item.available}</td>
+                            <td><strong style="color: var(--error-color)">${item.shortage}</strong></td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+    </script>
+</body>
+</html>
